@@ -1,1 +1,1 @@
-# Proyecto-investigaci-n-maestr-a
+# Proyecto-investigacion-maestria
