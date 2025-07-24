@@ -1,0 +1,185 @@
+---
+title: "volatilidad"
+author: "Biviana Suárez, Gabriel Agudelo"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+library(readxl)
+set.seed(123)
+library("stochvol")
+#data("exrates") #sirve para importar datos
+Dir="C:/Users/COJEDIAZ/Downloads"
+
+getwd()
+setwd(Dir)
+realdatadtf <- read_excel("Currencies.xlsx") #cambiar a donde este la carpeta
+dim(realdatadtf)
+realnames <- names(realdatadtf)[3:15] #obtiene los nombres de las manedas usadas
+boxplotnames <- names(realdatadtf)[2:15]
+boxplotnames <- sub("/USD","",boxplotnames)
+
+realdata <- data.matrix(realdatadtf[,2:15])
+#30 d?as, 23 monedas
+#dim(exrates)
+#summary(exrates$date)
+days <- dim(realdata)[1]
+coins <- dim(realdata)[2]
+
+#saca los log retornos
+logretdata <- matrix(nrow=days-1,ncol=coins)
+for (i in 1:coins) {
+  logretdata[,i] <- logret(realdata[,i])
+}
+
+#obtiene los parametros de h_t y guarda su media
+h_t2<- matrix(nrow=days-1,ncol=coins)
+for (i in 1:coins) {
+  res <- svsample(logretdata[,i],draws = 18000,burnin = 3000, priormu = c(-10, 1), priorphi = c(20, 1.1), priorsigma = .1)
+  h_t2[,i] <-res[["summary"]][["latent"]][,6]
+}
+i=1
+
+#Crea las distribuciones por dia
+x <- seq(-0.0005, 0.0005, by = 0.0000001)
+norm <- matrix(nrow=length(x),ncol=coins*(days-1))
+for (i in 1:coins) {
+  for (j in 1:(days-1)) {
+    norm[,(i-1)*(days-1)+j] <-t(dnorm(x,0,h_t2[j,i]))
+  }
+}
+
+i=1
+j=1
+dim(norm)
+
+#calcula el KL
+library(LaplacesDemon)
+KLlist <- matrix(nrow=1,ncol=coins-1)
+
+
+for (i in 2:coins) {
+  auxsum=0
+  for (j in 1:(days-1)) {
+    KLdist <- KLD(norm[,j],norm[,(i-1)*(days-1)+j])
+    auxsum=auxsum+KLdist$sum.KLD.px.py
+  }
+  KLlist[,i-1] <- auxsum
+}
+class(KLdist)
+
+names <- names(realdata)[2:coins]
+
+#DataFrame con el KL a cada moneda
+result <-as.data.frame(KLlist)
+colnames(result) <- realnames
+result <- as.data.frame(result)
+View(result)
+best=min(result)
+
+#paso a mano
+plot(realdatadtf$Fecha[1:2899],logret(data.matrix(realdatadtf$EUR)),type="l",col="red",main = "Volatility EUR vs JPY",xlab="Date",ylab = "LogReturn")
+lines(realdatadtf$Fecha[1:2899],logret(data.matrix(realdatadtf$JPY)),col="green")
+```
+
+```{r}
+
+#Box plots
+boxplot(logretdata,names = boxplotnames,main = "Total")
+boxplot(logretdata[1:61,],names = boxplotnames,main = "Boxplot first trimester")
+boxplot(logretdata[62:122,],names = boxplotnames,main = "Boxplot second trimester")
+boxplot(logretdata[123:183,],names = boxplotnames,main = "Boxplot third trimester")
+boxplot(logretdata[184:244,],names = boxplotnames,main = "Boxplot fouth trimester")
+boxplot(logretdata[245:305,],names = boxplotnames,main = "Boxplot fifth trimester")
+boxplot(logretdata[306:366,],names = boxplotnames,main = "Boxplot sixth trimester")
+```
+
+```{r}
+
+#Trimestrasl tabla
+
+KLlist_One <- matrix(nrow=1,ncol=coins-1)
+for (i in 2:coins) {
+  auxsum=0
+  for (j in 1:61) {
+    KLdist_One <- KLD(norm[,j],norm[,(i-1)*(days-1)+j])
+    auxsum=auxsum+KLdist_One$sum.KLD.px.py
+  }
+  KLlist_One[,i-1] <- auxsum
+}
+
+KLlist_Two <- matrix(nrow=1,ncol=coins-1)
+for (i in 2:coins) {
+  auxsum=0
+  for (j in 62:122) {
+    KLdist_Two <- KLD(norm[,j],norm[,(i-1)*(days-1)+j])
+    auxsum=auxsum+KLdist_Two$sum.KLD.px.py
+  }
+  KLlist_Two[,i-1] <- auxsum
+}
+
+KLlist_Three <- matrix(nrow=1,ncol=coins-1)
+for (i in 2:coins) {
+  auxsum=0
+  for (j in 123:183) {
+    KLdist_Three <- KLD(norm[,j],norm[,(i-1)*(days-1)+j])
+    auxsum=auxsum+KLdist_Three$sum.KLD.px.py
+  }
+  KLlist_Three[,i-1] <- auxsum
+}
+
+KLlist_Four <- matrix(nrow=1,ncol=coins-1)
+for (i in 2:coins) {
+  auxsum=0
+  for (j in 184:244) {
+    KLdist_Four <- KLD(norm[,j],norm[,(i-1)*(days-1)+j])
+    auxsum=auxsum+KLdist_Four$sum.KLD.px.py
+  }
+  KLlist_Four[,i-1] <- auxsum
+}
+
+KLlist_Five <- matrix(nrow=1,ncol=coins-1)
+for (i in 2:coins) {
+  auxsum=0
+  for (j in 245:305) {
+    KLdist_Five <- KLD(norm[,j],norm[,(i-1)*(days-1)+j])
+    auxsum=auxsum+KLdist_Five$sum.KLD.px.py
+  }
+  KLlist_Five[,i-1] <- auxsum
+}
+
+KLlist_Six <- matrix(nrow=1,ncol=coins-1)
+for (i in 2:coins) {
+  auxsum=0
+  for (j in 306:366) {
+    KLdist_Six <- KLD(norm[,j],norm[,(i-1)*(days-1)+j])
+    auxsum=auxsum+KLdist_Six$sum.KLD.px.py
+  }
+  KLlist_Six[,i-1] <- auxsum
+}
+tableKL <- matrix(c(boxplotnames[2:14], KLlist_One, KLlist_Two, KLlist_Three, KLlist_Four, KLlist_Five, KLlist_Six, KLlist),ncol=8)
+
+tableKLdf <- as.data.frame(tableKL)
+colnames(tableKLdf)<- c("Names","First", "Second", "Third","Fourth", "Fifth","Sixth","Total")
+tableKLdf
+#library(writexl)
+#write_xlsx(tableKLdf,"E:/Universidad/PI 3/table KL.xlsx")
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
